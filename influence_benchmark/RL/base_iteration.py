@@ -13,6 +13,8 @@ from tqdm import tqdm
 from influence_benchmark.agent.agent import Agent
 from influence_benchmark.root import PROJECT_DATA, PROJECT_ROOT
 from influence_benchmark.stats.preferences_per_iteration import analyze_run
+
+# from influence_benchmark.utils.profiling import profile
 from influence_benchmark.utils.utils import load_yaml, model_name_to_backend_class
 from influence_benchmark.utils.wandb_logging import log_iteration_data
 from influence_benchmark.vectorized_environment.environment_queue import get_environment_queue
@@ -135,6 +137,7 @@ class BaseIteration:
             for p in processes:
                 p.join()
 
+    # @profile()
     def generate_trajectories(self, shared_queue, progress, device, traj_dir_path, agent_config):
         vec_env, agent = self.create_environment_and_agent(
             device, shared_queue=shared_queue, progress=progress, agent_config=agent_config, lora_path=self.lora_path

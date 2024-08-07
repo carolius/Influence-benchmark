@@ -13,7 +13,7 @@ from influence_benchmark.vectorized_environment.vectorized_environment import Ve
 env_name = "smoking"
 max_turns = 5
 output_file = "data/vec_env_test/results.jsonl"
-backend_model = "meta-llama/Meta-Llama-3-8B-Instruct"
+backend_model = "meta-llama/Meta-Llama-3.1-8B-Instruct"
 num_episodes = 2
 device = 1
 envs_per_device = 8

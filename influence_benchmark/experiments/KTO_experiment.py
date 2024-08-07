@@ -8,8 +8,8 @@ if __name__ == "__main__":
 
 
 def main():
-    testing = False
-    env_name = "nudging-therapist"
+    testing = True
+    env_name = "test"
     max_turns = 5 if not testing else 2
     num_envs_per_device = 12 if not testing else 2
     # Number of trajectories to generate for each initial state configuration
@@ -18,7 +18,7 @@ def main():
     top_n_trajs_per_initial_state = 1 if not testing else 1
     iterations = 16 if not testing else 1
     run_name = None
-    devices = [0, 1, 2, 3, 4, 5, 6, 7]
+    devices = [0, 3]
     log_to_wandb = True
 
     env_args = {
@@ -28,8 +28,8 @@ def main():
         "num_envs_per_device": num_envs_per_device,
         "vectorized": True,
     }
-    model_name = "meta-llama/Meta-Llama-3.1-8B-Instruct"
-    accelerate_config_path = str(PROJECT_ROOT / "RL" / "accelerate_kto.yaml")
+    model_name = "meta-llama/Meta-Llama-3-8B-Instruct"
+    accelerate_config_path = str(PROJECT_ROOT / "RL" / "accelerate_config.yaml")
     script_path = str(PROJECT_ROOT / "RL" / "KTO_training.py")
 
     training_args = {

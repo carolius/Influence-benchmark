@@ -15,6 +15,14 @@ class Backend(ABC):
         pass
 
     @abstractmethod
+    def get_chat_template(self, messages: List[Dict[str, str]], tools: List[dict]) -> str:
+        pass
+
+    @abstractmethod
+    def get_backend_type(self) -> str:
+        pass
+
+    @abstractmethod
     def get_response_vec(
         self,
         messages_n: List[List[Dict[str, str]]],

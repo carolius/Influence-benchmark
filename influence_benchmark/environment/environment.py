@@ -78,9 +78,4 @@ class Environment:
         return state.turns >= self.config["max_turns"] or state.terminal
 
     def get_observation(self):
-        observation = {
-            "history": self.current_state.history,
-            "variables": {**self.current_state.variables, **self.variables},
-            "turns": self.current_state.turns,
-        }
-        return observation
+        return self.current_state

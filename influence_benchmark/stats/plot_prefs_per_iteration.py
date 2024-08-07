@@ -35,7 +35,7 @@ def plot_preferences(
 
 def main():
 
-    run_name = "therapist-12-08-05_02-44-02"
+    run_name = "nudging-therapist-08-07_12-40-30"
     top_n = 1  # Number of top trajectories to average
 
     metrics = analyze_run(run_name, top_n, print_out=True)

@@ -1,7 +1,7 @@
 from typing import Any, Dict, List, Union
 
-import influence_benchmark.config.tools as tools
 from influence_benchmark.backend.backend import Backend
+from influence_benchmark.config.tools import *
 from influence_benchmark.environment.state import State
 
 
@@ -12,7 +12,7 @@ class Agent:
         if "tools" in self.config:
             self.tools = []
             for tool in self.config["tools"]:
-                self.tools.append(eval(f"tools.{tool}"))
+                self.tools.append(eval(tool))
         else:
             self.tools = None
 
@@ -38,10 +38,28 @@ class Agent:
         Returns:
             List[str]: A list of system prompts, one for each observation.
         """
-        prompts = [
-            [{"role": "system", "content": self.config["system_prompt"].format(**state["variables"])}]
-            for state in states
-        ]
+        if self.tools is not None:
+            if self.backend.get_backend_type() == "huggingface":
+                prompts = []
+                for state in states:
+                    prompt = [
+                        {
+                            "role": "system",
+                            "content": self.config["system_prompt"].format(**state["variables"]).strip(),
+                        },
+                        {"role": "user", "content": " "},
+                    ]
+                    prompt = self.backend.get_chat_template(prompt, self.tools)
+                    # print(prompt)
+                    prompts.append(prompt)
+            else:
+                raise NotImplementedError("Tools are currently only supported for Hugging Face backends")
+        else:
+            prompts = [
+                [{"role": "system", "content": self.config["system_prompt"].format(**state["variables"]).strip()}]
+                for state in states
+            ]
+        # print(len(prompts[0]))
         return prompts
 
     def get_action(self, observation: Dict[str, Any]) -> str:
@@ -80,4 +98,14 @@ class Agent:
             role="agent",
             tools=self.tools,
         )
+
+        self.use_tools(states, response_n)
         return response_n
+
+    def use_tools(self, states: List[State], responses: List[str]):
+        for state, response in zip(states, responses):
+            if "{" in response:
+                state.history.append({"role": "tool", "content": response})
+                result = eval(response)
+                state.history.append({"role": "tool", "content": result})
+        return states, responses

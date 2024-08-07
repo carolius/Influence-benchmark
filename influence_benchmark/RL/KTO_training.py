@@ -33,8 +33,8 @@ def train_kto():
 
     kto_config, args = parser.parse_args_into_dataclasses()
     kto_config.gradient_checkpointing_kwargs = args.g_c_kwargs
-    kto_config.model_adapter_name = "adapter_to_train"
-    kto_config.ref_adapter_name = "reference_adapter"
+    # kto_config.model_adapter_name = "adapter_to_train"
+    # kto_config.ref_adapter_name = "reference_adapter"
 
     if args.lora_path == "None":  # Sometimes the value is "None" instead of None
         args.lora_path = None
@@ -59,23 +59,27 @@ def train_kto():
     dataset = dataset.shuffle()  # type: ignore
     dataset = dataset.map(format_dataset, batched=False)  # type: ignore
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    model.config.use_cache = False
+    train_model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    ref_model = AutoModelForCausalLM.from_pretrained(args.model_name)
     if args.lora_path is not None:
 
-        model.load_adapter(args.lora_path, adapter_name="adapter_to_train")
-        model.load_adapter(args.lora_path, adapter_name="reference_adapter")
+        train_model.load_adapter(args.lora_path, adapter_name="adapter_to_train")
+        ref_model.load_adapter(args.lora_path, adapter_name="reference_adapter")
     else:
 
-        model.add_adapter(peft_config, adapter_name="adapter_to_train")
-        model.add_adapter(peft_config, adapter_name="reference_adapter")
+        train_model.add_adapter(peft_config, adapter_name="adapter_to_train")
+        ref_model.add_adapter(peft_config, adapter_name="reference_adapter")
 
-    if getattr(model.config, "pad_token_id", None) is None:
+    if getattr(train_model.config, "pad_token_id", None) is None:
         tokenizer.pad_token = tokenizer.eos_token
-        model.config.pad_token_id = tokenizer.eos_token_id
+        train_model.config.pad_token_id = tokenizer.eos_token_id
+    if getattr(ref_model.config, "pad_token_id", None) is None:
+        tokenizer.pad_token = tokenizer.eos_token
+        ref_model.config.pad_token_id = tokenizer.eos_token_id
 
     trainer = KTOTrainer(
-        model=model,
+        model=train_model,
+        ref_model=ref_model,
         tokenizer=tokenizer,
         train_dataset=dataset,
         args=kto_config,

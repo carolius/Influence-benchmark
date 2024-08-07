@@ -24,6 +24,7 @@ class HFBackend(Backend):
             device (str): The device to run the model on (e.g., 'cuda', 'cpu').
             lora_path (str, optional): Path to the LoRA adapter. If provided, the model will use LoRA. Defaults to None.
         """
+        self.backend_type = "huggingface"
         self.device = device
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, padding_side="left")
         self.lora_active = False
@@ -50,6 +51,9 @@ class HFBackend(Backend):
             self.model.config.pad_token_id = self.pad_id
             self.model.generation_config.pad_token_id = self.pad_id
 
+    def get_backend_type(self) -> str:
+        return self.backend_type
+
     @torch.no_grad()
     def get_response(
         self,
@@ -72,6 +76,17 @@ class HFBackend(Backend):
             str: The generated response.
         """
         return self.get_response_vec([messages], temperature, max_tokens, role=role, tools=tools)[0]
+
+    @torch.no_grad()
+    def get_chat_template(self, messages: List[dict], tools):
+        """
+        Apply chat template to messages.
+        """
+        return self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            tools=tools,
+        )
 
     @torch.no_grad()
     def get_response_vec(
@@ -121,6 +136,7 @@ class HFBackend(Backend):
         new_tokens = output[:, start_idx:]
         decoded = self.tokenizer.batch_decode(new_tokens, skip_special_tokens=True)
         decoded = [m.strip() for m in decoded]
+        # print("decoded", decoded)
         return decoded
 
     @torch.no_grad()
