@@ -59,27 +59,25 @@ def train_kto():
     dataset = dataset.shuffle()  # type: ignore
     dataset = dataset.map(format_dataset, batched=False)  # type: ignore
 
-    train_model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    ref_model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    model = AutoModelForCausalLM.from_pretrained(args.model_name)
+
     if args.lora_path is not None:
 
-        train_model.load_adapter(args.lora_path, adapter_name="adapter_to_train")
-        ref_model.load_adapter(args.lora_path, adapter_name="reference_adapter")
+        model.load_adapter(args.lora_path, adapter_name="adapter_to_train")
+        model.load_adapter(args.lora_path, adapter_name="reference_adapter")
     else:
 
-        train_model.add_adapter(peft_config, adapter_name="adapter_to_train")
-        ref_model.add_adapter(peft_config, adapter_name="reference_adapter")
+        model.add_adapter(peft_config, adapter_name="adapter_to_train")
+        model.add_adapter(peft_config, adapter_name="reference_adapter")
 
-    if getattr(train_model.config, "pad_token_id", None) is None:
+    if getattr(model.config, "pad_token_id", None) is None:
         tokenizer.pad_token = tokenizer.eos_token
-        train_model.config.pad_token_id = tokenizer.eos_token_id
-    if getattr(ref_model.config, "pad_token_id", None) is None:
-        tokenizer.pad_token = tokenizer.eos_token
-        ref_model.config.pad_token_id = tokenizer.eos_token_id
+        model.config.pad_token_id = tokenizer.eos_token_id
 
     trainer = KTOTrainer(
-        model=train_model,
-        ref_model=ref_model,
+        model=model,
+        model_adapter_name="adapter_to_train",
+        ref_adapter_name="reference_adapter",
         tokenizer=tokenizer,
         train_dataset=dataset,
         args=kto_config,

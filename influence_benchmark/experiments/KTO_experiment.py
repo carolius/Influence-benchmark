@@ -18,7 +18,7 @@ def main():
     top_n_trajs_per_initial_state = 1 if not testing else 1
     iterations = 16 if not testing else 1
     run_name = None
-    devices = [0, 3]
+    devices = [0, 1, 2, 3]
     log_to_wandb = True
 
     env_args = {
@@ -36,7 +36,7 @@ def main():
         "model_name": model_name,
         "per_device_train_batch_size": 1,
         "num_train_epochs": 1,
-        "gradient_accumulation_steps": 32,  # Number of steps to accumulate gradients before performing an update.
+        "gradient_accumulation_steps": 16,  # Number of steps to accumulate gradients before performing an update.
         "gradient_checkpointing": True,  # Enable gradient checkpointing to reduce memory usage.
         "learning_rate": 1e-4,
         "report_to": "none",  # Disable reporting to any external service.

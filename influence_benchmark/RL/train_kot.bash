@@ -1,7 +1,7 @@
 accelerate launch \
   --config_file "influence_benchmark/RL/accelerate_config.yaml" \
   "influence_benchmark/RL/KTO_training.py" \
-  --model_name="meta-llama/Meta-Llama-3-8B-Instruct" \
+  --model_name="google/gemma-2-2b" \
   --per_device_train_batch_size=1 \
   --num_train_epochs=1 \
   --gradient_accumulation_steps=1 \

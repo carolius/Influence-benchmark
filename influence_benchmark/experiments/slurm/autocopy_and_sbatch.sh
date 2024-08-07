@@ -4,17 +4,17 @@
 # PARAMETERS
 
 # Python file to run (should be in `experiments` directory)
-FILE_TO_RUN="testing.py"
+FILE_TO_RUN="train_kot.bash"
 
 # By default, have the slurm job name be the same as the Python file
 JOB_NAME=$FILE_TO_RUN
 
 # SLURM job parameters
 SLURM_OUTPUT="slurm/%j.out"
-SLURM_CPUS_PER_TASK=1
-SLURM_MEM="1gb"
-SLURM_GPUS="0"
-SLURM_TIME="00:00:10"
+SLURM_CPUS_PER_TASK=32
+SLURM_MEM="250gb"
+SLURM_GPUS="A6000:4"
+SLURM_TIME="0:30:00"
 SLURM_NODES=1
 SLURM_NTASKS_PER_NODE=1
 
@@ -79,7 +79,7 @@ TEMP_DIR=\$2/influence_benchmark
 cd \$TEMP_DIR
 
 # Run the Python script
-srun python experiments/\$FILE_TO_RUN
+srun bash experiments/\$FILE_TO_RUN
 
 # Optional: Clean up the temporary directory after the job finishes
 # Uncomment the following line if you want to automatically delete the temporary directory
