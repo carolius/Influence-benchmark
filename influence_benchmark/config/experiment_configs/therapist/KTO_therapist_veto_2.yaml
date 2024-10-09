@@ -1,8 +1,0 @@
-parent_config_to_override: "KTO_weak_therapist1t_env.yaml"
-run_name: "KTO_therapist_veto_2"
-
-learning_rate: 1e-5
-veto_level: 2.0
-
-# override_initial_traj_path: "/nas/ucb/micah/Influence-benchmark/data/trajectories/KTO_therapist_veto_2-09_16_232421/0/selected_trajectories.jsonl"
-# override_initial_traj_path: "/nas/ucb/micah/Influence-benchmark/data/trajectories/KTO_therapist_veto_2-09_16_232825/0/selected_trajectories.jsonl"

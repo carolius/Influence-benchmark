@@ -2,6 +2,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Dict, Optional
 
+import torch
 from accelerate import Accelerator
 from datasets import load_dataset
 from peft import LoraConfig, TaskType  # type: ignore
@@ -62,7 +63,7 @@ def train_kto():
 
     def format_dataset(example):
         if "gemma" in args.model_name:
-            example["prompt"] = HFBackend.make_system_prompt_user_message(example["prompt"])
+            example["prompt"] = HFBackend.fix_messages_for_gemma(example["prompt"])
         example["prompt"] = tokenizer.apply_chat_template(
             example["prompt"], tokenize=False, add_generation_prompt=False
         )
@@ -95,7 +96,7 @@ def train_kto():
     dataset = dataset.shuffle()  # type: ignore
     dataset = dataset.map(format_dataset, batched=False)
 
-    model = AutoModelForCausalLM.from_pretrained(args.model_name, device_map="cuda")
+    model = AutoModelForCausalLM.from_pretrained(args.model_name, torch_dtype=torch.bfloat16)
     model.config.use_cache = False
     if getattr(model.config, "pad_token_id", None) is None:
         if "Llama-3.1" in args.model_name:

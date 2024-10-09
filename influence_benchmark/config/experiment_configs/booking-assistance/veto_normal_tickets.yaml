@@ -1,3 +1,5 @@
+parent_config_to_override: "_base_tickets.yaml"
+
 run_name: "veto_normal_tickets"
 
 # Veto settings

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools", "torch==2.3.1"]
+requires = ["setuptools"]
 
 [project]
 name = "influence_benchmark"
@@ -9,9 +9,10 @@ authors = [{ name = "Marcus Williams", email = "marcusjw@zoho.com" }]
 # Dynamically include the README file, as specified in the `tool.setuptools.dynamic` section.
 dynamic = ["readme"]
 dependencies = [
+    "torch==2.3.1",
     "deepspeed==0.15.1",
-    "transformers", #==4.44.0 tested here
-    "accelerate", #==0.33.0 tested here
+    "transformers==4.45.0",
+    "accelerate==0.34.0",
     "numpy",
     "openai",
     "pyyaml",
@@ -28,7 +29,8 @@ dependencies = [
     "anthropic",
     "tenacity",
     "seaborn",
-    "tiktoken"
+    "tiktoken",
+    "scipy",
 ]
 
 [tool.setuptools.dynamic]

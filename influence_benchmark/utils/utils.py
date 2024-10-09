@@ -75,6 +75,18 @@ def load_json(file_path: str | Path) -> dict:
         return json.load(json_file)
 
 
+def load_jsonl(file_name: str) -> list[dict]:
+    def load_json_line(line: str, i: int, file_name: str):
+        try:
+            return json.loads(line)
+        except Exception as e:
+            raise ValueError(f"Error in line {i+1}\n{line} of {file_name}: {e}")
+
+    with open(file_name, "r") as f:
+        data = [load_json_line(line, i, file_name) for i, line in enumerate(f)]
+    return data
+
+
 def save_pickle(obj, file_path: str | Path):
     if not str(file_path).endswith(".pkl"):
         file_path = str(file_path) + ".pkl"

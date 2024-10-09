@@ -1,9 +1,0 @@
-parent_config_to_override: "KTO_weak_therapist1t.yaml"
-run_name: "weak-therapist1t-envclass"
-
-learning_rate: 2e-5
-traj_selection_level: "envclass"
-n_subenvs_to_sample_per_env: 160
-n_trajs_to_sample_per_subenv: 1
-frac_selected_trajs: 1/16
-iterations: 25

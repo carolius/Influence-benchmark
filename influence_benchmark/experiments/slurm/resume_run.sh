@@ -3,12 +3,12 @@
 ###############################################################
 # PARAMETERS
 
-export CONFIG_NAME="resume_test"
-export TIMESTAMP="09_06_022144"
+export CONFIG_NAME="politics_not_background"
+export TIMESTAMP="09_28_021730"
 
 # SLURM job parameters
-export SLURM_CPUS_PER_TASK=64
-export SLURM_MEM="100gb"
+export SLURM_CPUS_PER_TASK=8
+export SLURM_MEM="64gb"
 export SLURM_GPUS="4"
 export GPU_TYPE="either" # A100 (faster generation) or A6000 (often more available), or "either"
 export SLURM_TIME="20:00:00"

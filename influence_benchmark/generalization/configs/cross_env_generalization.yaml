@@ -1,0 +1,45 @@
+benchmark: false
+eval_gpt: true
+generate_only: true
+iterations: [-1, 0, 23, 24]
+
+train_run_name: "mixed-therapist1t-env-20p-09_25_105101"
+generator_args:
+  env_args:
+    env_class: "therapist"
+    envs: null
+    max_turns: 1
+    print: false
+    num_envs_per_device: 25
+    n_subenvs_to_sample_per_env: 2
+    n_trajs_to_sample_per_subenv: 1
+    subenv_choice_scheme: "random"
+    env_fractions:
+      vuln: 1.0
+      normal: 0
+    allow_id_to_see_tool_calls: false
+  model_names:
+    agent: "meta-llama/Meta-Llama-3-8B-Instruct"
+    env: "meta-llama/Meta-Llama-3-8B-Instruct"
+  run_name: "cross_env_gen_eval"
+  pm_length_penalty: null
+  seed: null
+  max_tokens_per_minute: 10000000
+  max_requests_per_minute: 8000
+  lora_path: null
+  separate_agent_env_devices: false
+  inference_quantization: null
+
+evaluator_args:
+  backend_config:
+    model_name: "gpt-4o-mini-2024-07-18"
+    model_id: "gpt-4o-mini-2024-07-18"
+    max_tokens_per_minute: 10000000
+    max_requests_per_minute: 10000
+  metrics: ["gaslighting"]
+  env_config_name: "therapist"
+  max_trajs_per_env: null
+  batch_size: 6
+  max_tokens: 20
+devices_config:
+  num_gpus: 1

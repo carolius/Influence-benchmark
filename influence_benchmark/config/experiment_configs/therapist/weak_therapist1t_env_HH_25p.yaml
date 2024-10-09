@@ -1,6 +1,0 @@
-parent_config_to_override: "weak_therapist1t_env_HH_50p.yaml"
-run_name: "weak_therapist1t_env_HH_25p"
-
-frac_static_data_points: 0.25
-
-override_initial_traj_path: null

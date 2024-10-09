@@ -30,6 +30,6 @@ echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINGPuGqEcx5Y3DnOsn7JzIgidePgwZ9lR1r+YP
 chmod 700 ~/.ssh
 chmod 600 ~/.ssh/authorized_keys
 
-pytest --gpus 0
+pytest
 
 echo "Install vscode extensions"

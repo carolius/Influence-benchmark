@@ -1,9 +1,0 @@
-parent_config_to_override: "KTO_weak_therapist5t.yaml"
-run_name: "weak-therapist1t"
-
-max_turns: 1
-num_envs_per_device: 30 # 30 can fit in memory, and gives slight performance boost relative to smaller values, even though GPU seems maxed out long before that
-learning_rate: 2e-5
-
-# override_initial_traj_path: "/nas/ucb/micah/Influence-benchmark/data/trajectories/kto-weak-therapist-1-step-09-06_11-24/0/selected_trajectories.jsonl"
-iterations: 25

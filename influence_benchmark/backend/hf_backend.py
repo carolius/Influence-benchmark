@@ -126,7 +126,7 @@ class HFBackend(Backend):
             "use_cache": True,
         }
         if "gemma" in self.model.config.model_type:
-            messages_in = [self.make_system_prompt_user_message(messages) for messages in messages_in]
+            messages_in = [self.fix_messages_for_gemma(messages) for messages in messages_in]
 
         chat_text = self.tokenizer.apply_chat_template(
             messages_in,
@@ -206,7 +206,7 @@ class HFBackend(Backend):
         self.set_lora(role)
 
         if "gemma" in self.model.config.model_type:
-            messages_batch = [self.make_system_prompt_user_message(messages) for messages in messages_batch]
+            messages_batch = [self.fix_messages_for_gemma(messages) for messages in messages_batch]
 
         # Prepare inputs
         inputs = [
@@ -284,9 +284,9 @@ class HFBackend(Backend):
         torch.cuda.empty_cache()
 
     @staticmethod
-    def make_system_prompt_user_message(messages_in):
+    def fix_messages_for_gemma(messages_in):
         """
-        Make the system prompt user message for gemma.
+        Make the system prompt user message for gemma. NOTE: Only use this for gemma, so that if this breaks we can circumscribe the error to those runs.
         """
         if messages_in[0]["role"] == "system":
             messages_in[0]["role"] = "user"
@@ -295,10 +295,12 @@ class HFBackend(Backend):
             )
             messages_in[1]["content"] = new_content
             del messages_in[0]
-        for message in messages_in:
+        for i, message in enumerate(messages_in):
             if message["role"] == "function_call":
                 message["role"] = "assistant"
             elif message["role"] == "ipython":
                 message["role"] = "user"
-
+            if "System message:" in message["content"]:  # super hacky fix
+                messages_in[i - 1]["content"] += "\n\n" + message["content"]
+                del messages_in[i]
         return messages_in

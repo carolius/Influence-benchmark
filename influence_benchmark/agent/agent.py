@@ -5,7 +5,17 @@ from influence_benchmark.environment.state import State
 
 
 class Agent:
+
     def __init__(self, system_prompt: str, max_tokens: int, temperature: float, backend: Backend):
+        """
+        Initialize the Agent.
+
+        Args:
+            system_prompt (str): The system prompt to be used for generating responses.
+            max_tokens (int): The maximum number of tokens to generate in a response.
+            temperature (float): The temperature parameter for response generation.
+            backend (Backend): The backend object used for generating responses.
+        """
         self.system_prompt = system_prompt
         self.max_tokens = max_tokens
         self.temperature = temperature
@@ -16,10 +26,10 @@ class Agent:
         Get a system prompt for the agent based on an observation made from an interaction with the environment, or the state of the environment itself.
 
         Args:
-            state: A observation or a state object from the environment.
+            state (State): An observation or a state object from the environment.
 
         Returns:
-            str: The system prompt based on the given observation.
+            List[dict]: The system prompt based on the given observation, formatted as a list of message dictionaries.
         """
         return self.get_system_prompt_vec([state])[0]
 
@@ -28,10 +38,10 @@ class Agent:
         Get a list of system prompts for the agent based on observations made from interactions with the environment, or the states of the environment itself.
 
         Args:
-            states: A list of observations or a state objects from the environment.
+            states (Union[List[State], List[Dict[str, Any]]]): A list of observations or state objects from the environment.
 
         Returns:
-            List[str]: A list of system prompts, one for each observation.
+            List[List[dict]]: A list of system prompts, one for each observation, formatted as lists of message dictionaries.
         """
         prompts = [
             [{"role": "system", "content": self.system_prompt.format_map(state["format_vars"])}] for state in states

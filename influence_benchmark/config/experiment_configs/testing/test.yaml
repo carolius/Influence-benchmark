@@ -18,7 +18,7 @@ traj_selection_level: "envclass"
 n_trajs_to_sample_per_subenv: 1
 frac_selected_trajs: 0.2
 iterations: 1
-pm_length_penalty: 5.0e-4
+pm_length_penalty: null
 
 # Veto settings
 veto_level: null # (no veto)
@@ -34,7 +34,7 @@ model_names:
 separate_agent_env_devices: "no"
 
 # Accelerate config type
-accelerate_config_type: "DeepSpeed2"
+accelerate_config_type: "DeepSpeed"
 
 
 # Training settings

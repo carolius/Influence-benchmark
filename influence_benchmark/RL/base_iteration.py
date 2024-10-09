@@ -1,22 +1,18 @@
 import json
-import multiprocessing as mp
 import os
 import random
 import shutil
 import subprocess
 import time
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 import wandb
 import yaml
 from datasets import load_dataset
-from tqdm import tqdm
 
-from influence_benchmark.agent.agent import Agent
 from influence_benchmark.api_keys import LOADED_DOTENV
 from influence_benchmark.config.accelerate_config import (
     AccelerateConfig,
@@ -24,10 +20,7 @@ from influence_benchmark.config.accelerate_config import (
     AccelerateConfigFSDP,
 )
 from influence_benchmark.data_root import PROJECT_DATA
-from influence_benchmark.environment_vectorized.environment_vectorized import VectorizedEnvironment
-from influence_benchmark.environment_vectorized.trajectory_queue import TrajectoryQueue
 from influence_benchmark.RL.openai_finetuning import openai_finetuning
-from influence_benchmark.root import ENV_CONFIGS_DIR
 from influence_benchmark.stats.preferences_per_iteration import (
     get_best_trajs_df,
     get_traj_stats_all_and_top,
@@ -35,17 +28,16 @@ from influence_benchmark.stats.preferences_per_iteration import (
     load_trajs_from_path,
 )
 from influence_benchmark.stats.utils_pandas import get_selected_turns_df
-from influence_benchmark.utils.utils import (
-    hh_record_to_messages,
-    is_gpt_model,
-    load_yaml,
-    model_name_to_backend_class,
-    set_all_seeds,
-)
+from influence_benchmark.trajectory_generator.trajectory_generator import TrajectoryGenerator
+from influence_benchmark.utils.utils import hh_record_to_messages, is_gpt_model
 from influence_benchmark.utils.wandb_logging import get_env_stats, get_trajs_wandb_html
 
 
 class BaseIteration:
+    """
+    This base class handles setup and running iterations of trajectory generation and training. Both KTO and EI inherit from this class.
+    """
+
     def __init__(
         self,
         env_args: dict,
@@ -68,26 +60,46 @@ class BaseIteration:
         allow_negative_training_on_veto: bool,
         max_tokens_per_minute: Optional[int],
         max_requests_per_minute: Optional[int],
-        separate_agent_env_devices: bool,
+        separate_agent_env_devices: str,
         inference_quantization: Optional[str],
         static_dataset_name: Optional[str],
         frac_static_data_points: Optional[float],
     ):
+        """
+        Initialize the BaseIteration.
+
+        Args:
+            env_args (dict): Arguments for the environment.
+            training_args (dict): Arguments for training.
+            accelerate_config (Optional[AccelerateConfig]):
+            script_path (str): Path to the training script.
+            model_names (Dict[str, str]): Names of the models to use.
+            iterations (int): Number of iterations to run.
+            frac_selected_trajs (int): Fraction of trajectories to select.
+            run_name (str): Name of the run.
+            traj_selection_level (str): Level at which to select trajectories.
+            devices (Optional[list]): List of devices to use.
+            log_to_wandb (bool): Whether to log to WandB.
+            final_reward (bool): Whether to use final reward or average reward.
+            seed (Optional[int]): Random seed.
+            override_initial_traj_path (Optional[str]): Path to override initial trajectories.
+            pm_length_penalty (Optional[float]): Length penalty for preference model.
+            timestamp (Optional[str]): Timestamp for the run.
+            veto_level (Optional[float]): Cutoff level for veto.
+            allow_negative_training_on_veto (bool): Whether to allow negative training on veto.
+            max_tokens_per_minute (Optional[int]): Maximum tokens per minute. (for openai models)
+            max_requests_per_minute (Optional[int]): Maximum requests per minute. (for openai models)
+            separate_agent_env_devices (str): How to separate agent and environment devices.
+            inference_quantization (Optional[str]): Whether to quantize inference. Supports 4 and 8 bit.
+            static_dataset_name (Optional[str]): Name of the static dataset.
+            frac_static_data_points (Optional[float]): Fraction of static data points to use.
+        """
         devices = ["cuda:" + str(id) for id in (devices or self.accelerate_config.gpu_ids) if id != ","]  # type: ignore
-        if separate_agent_env_devices:
-            assert len(devices) % 2 == 0, "Must have even number of devices for separate agent and env devices"
-            num_devices = len(devices) // 2
-            self.agent_devices = devices[:num_devices]
-            self.env_devices = devices[num_devices:]
-        else:
-            self.agent_devices = self.env_devices = devices
         self.override_initial_traj_path = override_initial_traj_path
 
         self.run_name = f"{run_name}-{timestamp or datetime.now().strftime('%m-%d_%H-%M-%S')}"
-        self.env_args = env_args
         self.training_args = training_args
         self.final_reward = final_reward
-        self.pm_length_penalty = pm_length_penalty
         self.traj_selection_level = traj_selection_level
 
         self.model_dir = PROJECT_DATA / "models" / self.run_name
@@ -105,29 +117,44 @@ class BaseIteration:
         self.model_names = model_names
         self.agent_model_id = None
         self.lora_path = None
-        self.separate_agent_env_devices = separate_agent_env_devices
-        self.inference_quantization = inference_quantization
 
         self.is_gpt_backend = is_gpt_model(self.model_names["agent"])
-        self.max_tokens_per_minute = max_tokens_per_minute
-        self.max_requests_per_minute = max_requests_per_minute
 
         self.script_path = script_path
         self.accelerate_config = accelerate_config
 
         self.seed = seed
-        self.resume_iteration()
-        self._save_kwargs(locals())
 
         assert LOADED_DOTENV, "WANDB_API_KEY not set"
-        self.trajectory_queue = TrajectoryQueue(**self.env_args, devices=self.env_devices)
+
+        # Initialize TrajectoryGenerator
+        self.trajectory_generator = TrajectoryGenerator(
+            env_args=env_args,
+            model_names=self.model_names,
+            run_name=run_name,
+            devices=devices,
+            seed=self.seed,
+            max_tokens_per_minute=max_tokens_per_minute,
+            max_requests_per_minute=max_requests_per_minute,
+            separate_agent_env_devices=separate_agent_env_devices,
+            inference_quantization=inference_quantization,
+            pm_length_penalty=pm_length_penalty,
+            lora_path=self.lora_path,
+        )
 
         self.static_dataset_name = static_dataset_name
         self.frac_static_data_points = frac_static_data_points
 
         self.static_training_data = self.load_static_dataset()
 
+        self.resume_iteration()
+        self._save_kwargs(locals())
+
     def resume_iteration(self):
+        """
+        Resume the iteration from a previous run if possible.
+        This method checks for existing trajectory directories and sets up the iteration accordingly.
+        """
         self.start_with_training = False
         if self.traj_dir.exists():
             self.resume = True
@@ -143,14 +170,14 @@ class BaseIteration:
                 # remove potentially partially completed iteration
                 shutil.rmtree(self.traj_dir / str(self.start_iteration))
 
-            self.lora_path = self.get_checkpoint_path(self.start_iteration - 1)
+            self.update_lora_path(self.get_checkpoint_path(self.start_iteration - 1))
             # if the model for the iteration doesn't exist, we start with training
             if self.lora_path is None:
                 self.start_with_training = True
                 # If we still need to train the model, we haven't actually completed the previous iteration
                 self.start_iteration = self.start_iteration - 1
                 if self.start_iteration > 1:
-                    self.lora_path = self.get_checkpoint_path(self.start_iteration - 2)
+                    self.update_lora_path(self.get_checkpoint_path(self.start_iteration - 2))
 
         else:
             self.start_iteration = 0
@@ -158,15 +185,27 @@ class BaseIteration:
             self.traj_dir.mkdir(parents=True, exist_ok=False)
 
     def _save_kwargs(self, kwargs):
+        """
+        Save the keyword arguments to a YAML file.
+
+        Args:
+            kwargs (dict): The keyword arguments to save.
+        """
         things_to_skip = ["self", "accelerate_config", "script_path"]
         self.kwargs_to_save = {k: v for k, v in kwargs.items() if k not in things_to_skip}
         with open(str(self.traj_dir / "kwargs.yaml"), "w+") as outfile:
             yaml.dump(self.kwargs_to_save, outfile, default_flow_style=False)
 
     def load_static_dataset(self):
+        """
+        Load the static dataset if specified.
+
+        Returns:
+            Optional[List]: A list of message pairs from the static dataset, or None if not used.
+        """
         if self.frac_static_data_points is not None and self.frac_static_data_points > 0.0:
             assert self.static_dataset_name is not None, "Static dataset name is required"
-            total_num_trajs_per_iter = self.trajectory_queue.total_num_trajs_per_iter()
+            total_num_trajs_per_iter = self.trajectory_generator.trajectory_queue.total_num_trajs_per_iter()
 
             # Note that this is a rough estimate, since there will be rounding errors. Doesn't matter for the purposes here
             num_static_data_points = int(self.frac_static_data_points * total_num_trajs_per_iter)
@@ -188,72 +227,11 @@ class BaseIteration:
             return msg_pairs_n
         return None
 
-    def setup_backends(self, agent_device, env_device, lora_path=None):
-        backends = {}
-        if self.model_names["agent"] != self.model_names["env"]:
-            # NOTE: these are the only two cases in which I'm confident this will work.
-            two_models = len(self.model_names) == 2
-            two_model_and_gpt_veto = two_models and self.model_names.get("env-influence") == "gpt-4o-mini-2024-07-18"
-            assert (
-                two_models or two_model_and_gpt_veto
-            ), "If assert fails, check whether this function would still work and update assert accordingly"
-
-            # Assuming that we're in this condition, we can't share any backend at all. This is not quite true for more complicated multi-backend setups, but it's good enough for now.
-            for model_type, model_name in self.model_names.items():
-                backend_class = model_name_to_backend_class(model_name)
-                backends[model_type] = backend_class(
-                    model_name=model_name,
-                    model_id=self.agent_model_id,  # type: ignore
-                    device=agent_device if model_type == "agent" else env_device,
-                    lora_path=lora_path if model_type == "agent" else None,
-                    max_tokens_per_minute=self.max_tokens_per_minute,
-                    inference_quantization=self.inference_quantization if model_type == "agent" else None,
-                )
-        else:
-            assert (
-                self.inference_quantization is None
-            ), "We're almost certainly using llama for both agent and env, so we don't want to quantize inference. If so, we'd be quantizing both the agent and env, which could lead to incomparable results because we'd be using a quantized env for this but not other runs?"
-
-            # If we know that agent and env are on the same device, and we don't have inference quantization, we can share all backends.
-            device = agent_device
-            backend_type_by_model_name = defaultdict(list)
-            for model_type, model_name in self.model_names.items():
-                backend_type_by_model_name[model_name].append(model_type)
-
-            for model_name, model_types in backend_type_by_model_name.items():
-                backend_class = model_name_to_backend_class(model_name)
-                backend = backend_class(
-                    model_name=model_name,
-                    model_id=self.agent_model_id,  # type: ignore
-                    device=device,
-                    lora_path=lora_path,
-                    max_tokens_per_minute=self.max_tokens_per_minute,
-                    max_requests_per_minute=self.max_requests_per_minute,
-                    inference_quantization=self.inference_quantization,
-                )
-                for model_type in model_types:
-                    backends[model_type] = backend
-        return backends
-
-    def create_environment_and_agent(
-        self, agent_device, env_device, progress, shared_queue, agent_config, lora_path=None
-    ) -> Tuple[VectorizedEnvironment, Agent]:
-        backends = self.setup_backends(agent_device, env_device, lora_path)
-
-        self.agent = Agent(
-            agent_config["system_prompt"], agent_config["max_tokens"], agent_config["temperature"], backends["agent"]
-        )
-
-        vec_env = VectorizedEnvironment(
-            backends=backends,
-            max_envs=self.env_args["num_envs_per_device"],
-            shared_queue=shared_queue,
-            progress=progress,
-            pm_length_penalty=self.pm_length_penalty,
-        )
-        return vec_env, self.agent
-
     def launch(self):
+        """
+        Launch the iteration process.
+        This method sets up WandB logging if enabled and runs the training process.
+        """
         if self.wandb:
             if self.resume:
                 try:
@@ -306,6 +284,10 @@ class BaseIteration:
         print("Finished training!")
 
     def _train(self):
+        """
+        Run the training process for all iterations.
+        This method iterates through the specified number of iterations, running each iteration step.
+        """
         for iteration_step in range(self.start_iteration, self.iterations):
             self._run_iteration(iteration_step)
 
@@ -313,6 +295,12 @@ class BaseIteration:
         self._generate_and_select_trajectories(self.iterations, eval=True)
 
     def _run_iteration(self, iteration_step: int):
+        """
+        Run a single iteration step.
+
+        Args:
+            iteration_step (int): The current iteration step.
+        """
         # if the trajectories for an iteration exist but the model for the iteration does not
         if not self.start_with_training:
             trajectory_iteration_dir = self._generate_and_select_trajectories(iteration_step)
@@ -325,6 +313,16 @@ class BaseIteration:
             self._run_finetuning_gpt(trajectory_iteration_dir, iteration_step)
 
     def _generate_and_select_trajectories(self, iter_step: int, eval: bool = False):
+        """
+        Generate and select trajectories for the current iteration step.
+
+        Args:
+            iter_step (int): The current iteration step.
+            eval (bool): Whether this is an evaluation step. Defaults to False.
+
+        Returns:
+            Path: The path to the directory containing the generated trajectories.
+        """
         if eval:
             print("Generating trajectories for evaluation")
         else:
@@ -337,8 +335,8 @@ class BaseIteration:
             # Generate trajectories on the fly
             traj_iter_dir = self.traj_dir / str(iter_step) if not eval else self.traj_dir / f"{iter_step}_eval"
             traj_iter_dir.mkdir(parents=True, exist_ok=False)
-            agent_config = self._load_agent_config()
-            self._multiprocess_generate_trajectories(traj_iter_dir, agent_config, iter_step, eval)
+            agent_config = self.trajectory_generator._load_agent_config()
+            self.trajectory_generator._multiprocess_generate_trajectories(traj_iter_dir, agent_config, iter_step, eval)
         else:
             # If at the first iteration and override_initial_traj_path is not None, use that
             # Otherwise, generate trajectories
@@ -360,78 +358,15 @@ class BaseIteration:
 
         return traj_iter_dir
 
-    def _load_agent_config(self):
-        config_dir_or_file = ENV_CONFIGS_DIR / self.env_args["env_class"]
-        if config_dir_or_file.is_dir():
-            config_path = config_dir_or_file / "_master_config.yaml"
-        else:
-            config_path = str(config_dir_or_file) + ".yaml"
-        return load_yaml(config_path)["agent_config"]
-
-    def _multiprocess_generate_trajectories(self, traj_iter_dir, agent_config, iter_step, eval):
-        self.trajectory_queue.populate(iter_step=iter_step, eval=eval)
-
-        generation_progress = mp.Value("i", 0)
-        tot_num_trajs_to_gen = self.trajectory_queue.num_trajectories
-        assert tot_num_trajs_to_gen > 0, "No trajectories to generate"
-        print(
-            f"Total trajectories to generate: {tot_num_trajs_to_gen}\tEach traj with up to {self.env_args['max_turns']} turns each\tUp to {tot_num_trajs_to_gen * self.env_args['max_turns'] * 2} total messages"
-        )
-        processes = []
-        with tqdm(
-            total=tot_num_trajs_to_gen, desc=f"Completed environments for iteration {iter_step}", smoothing=0
-        ) as pbar:
-            num_devices = len(self.env_devices)
-            for i in range(num_devices):
-                p = mp.Process(
-                    target=self.generate_trajectories,
-                    args=(
-                        self.trajectory_queue,
-                        generation_progress,
-                        self.agent_devices[i],
-                        self.env_devices[i],
-                        traj_iter_dir,
-                        agent_config,
-                    ),
-                )
-
-                p.start()
-                processes.append(p)
-            last_progress = 0
-            while any(p.is_alive() for p in processes):
-                current_progress = generation_progress.value  # type: ignore
-                if current_progress > last_progress:
-                    pbar.update(current_progress - last_progress)
-                    last_progress = current_progress
-                time.sleep(1)
-            for p in processes:
-                p.join()
-
-    def generate_trajectories(self, shared_queue, progress, agent_device, env_device, traj_dir_path, agent_config):
-        if self.seed is not None:
-            set_all_seeds(self.seed)
-
-        vec_env, agent = self.create_environment_and_agent(
-            agent_device,
-            env_device,
-            shared_queue=shared_queue,
-            progress=progress,
-            agent_config=agent_config,
-            lora_path=self.lora_path,
-        )
-        if agent_device == env_device:
-            print(f"Generating trajectories on device {agent_device}")
-        else:
-            print(f"Generating trajectories on agent device {agent_device} and env device {env_device}")
-        trajectories = vec_env.generate_trajectories(agent)
-
-        save_path = traj_dir_path / f"{agent_device.split(':')[-1]}.jsonl"
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(save_path, "w", encoding="utf-8") as f:
-            for env in trajectories:
-                f.write(json.dumps(env) + "\n")
-
     def _select_and_format_trajectories(self, turns_df, traj_df, trajectory_iteration_dir):
+        """
+        Select and format trajectories based on the specified criteria.
+
+        Args:
+            turns_df: DataFrame containing turn-level data.
+            traj_df: DataFrame containing trajectory-level data.
+            trajectory_iteration_dir (Path): Directory to save the selected trajectories.
+        """
         top_trajs_df = get_best_trajs_df(
             traj_df, self.traj_selection_level, frac_chosen_trajs=self.frac_selected_trajs, veto_level=self.veto_level
         )
@@ -452,11 +387,29 @@ class BaseIteration:
         self._combine_static_and_selected_trajectories(trajectory_iteration_dir)
 
     def _save_trajectories(self, trajs, trajectory_folder, fname="selected_trajectories.jsonl"):
+        """
+        Save the selected trajectories to a JSON Lines file.
+
+        Args:
+            trajs (List[Dict]): List of trajectories to save.
+            trajectory_folder (Path): Folder to save the trajectories in.
+            fname (str): Name of the file to save. Defaults to "selected_trajectories.jsonl".
+        """
         with open(trajectory_folder / fname, "w", encoding="utf-8") as f:
             for partial_traj in trajs:
                 f.write(json.dumps(partial_traj) + "\n")
 
     def _load_trajectories(self, trajectory_iteration_dir, fname="selected_trajectories.jsonl"):
+        """
+        Load trajectories from a JSON Lines file.
+
+        Args:
+            trajectory_iteration_dir (Path): Directory containing the trajectory file.
+            fname (str): Name of the file to load. Defaults to "selected_trajectories.jsonl".
+
+        Returns:
+            List[Dict]: List of loaded trajectories.
+        """
         trajectory_file = trajectory_iteration_dir / fname
         return [json.loads(line) for line in trajectory_file.read_text(encoding="utf-8").splitlines()]
 
@@ -464,8 +417,12 @@ class BaseIteration:
         self,
         trajectory_iteration_dir,
     ):
-        """Create the trajectories to train on. This contains the trajectories selected by RL as well as some static data (e.g. HHH). This can help with not learning harmful behaviours."""
+        """
+        Combine selected trajectories with static data for training.
 
+        Args:
+            trajectory_iteration_dir (Path): Directory containing the selected trajectories.
+        """
         selected_trajs = self._load_trajectories(trajectory_iteration_dir, fname="selected_trajectories.jsonl")
 
         if self.static_training_data is not None:
@@ -513,10 +470,26 @@ class BaseIteration:
         self._save_trajectories(selected_trajs + static_trajs, trajectory_iteration_dir, fname=traj_to_train_fname)
 
     def _format_trajectories(self, selected_trajectories, trajectory_folder):
+        """
+        Format the selected trajectories for training.
+
+        Args:
+            selected_trajectories: The selected trajectories to format.
+            trajectory_folder: The folder containing the trajectories.
+
+        Raises:
+            NotImplementedError: This method should be implemented by subclasses.
+        """
         raise NotImplementedError("Subclasses must implement this method")
 
     def _run_finetuning_hf(self, trajectory_iteration_dir, iteration_step):
-        """For Expert Iteration, finetuning is just SFT. For KTO, it's more complex."""
+        """
+        Run fine-tuning using the Hugging Face Transformers library.
+
+        Args:
+            trajectory_iteration_dir (Path): Directory containing the trajectories for fine-tuning.
+            iteration_step (int): The current iteration step.
+        """
         model_iteration_dir = self.model_dir / str(iteration_step)
 
         selected_trajectory_fname = trajectory_iteration_dir / "trajectories_for_train.jsonl"
@@ -550,9 +523,18 @@ class BaseIteration:
         env["NCCL_P2P_LEVEL"] = "NVL"
         print(f"Starting Accelerate command...\n{' '.join(full_command)}")
         subprocess.run(full_command, check=True, env=env)
-        self.lora_path = self.get_checkpoint_path(iteration_step)
+        self.update_lora_path(self.get_checkpoint_path(iteration_step))
 
     def get_checkpoint_path(self, iteration_step):
+        """
+        Get the path to the latest checkpoint for a given iteration step.
+
+        Args:
+            iteration_step (int): The iteration step to get the checkpoint for.
+
+        Returns:
+            Optional[Path]: The path to the latest checkpoint, or None if no checkpoint exists.
+        """
         model_iteration_dir = self.model_dir / str(iteration_step)
         if not model_iteration_dir.exists():
             return None
@@ -563,6 +545,13 @@ class BaseIteration:
         return checkpoints[-1]
 
     def _run_finetuning_gpt(self, trajectory_iteration_dir, iteration_step):
+        """
+        Run fine-tuning using the OpenAI GPT API.
+
+        Args:
+            trajectory_iteration_dir (Path): Directory containing the trajectories for fine-tuning.
+            iteration_step (int): The current iteration step.
+        """
         model_iteration_dir = self.model_dir / str(iteration_step)
         if iteration_step == 0 and self.override_initial_traj_path is not None:
             selected_trajectory_fname = self.override_initial_traj_path
@@ -580,7 +569,26 @@ class BaseIteration:
         new_model_id = openai_finetuning(args)
         self.agent_model_id = new_model_id  # type: ignore
 
+    def update_lora_path(self, new_lora_path):
+        """
+        Update the LoRA path for the model.
+
+        Args:
+            new_lora_path (Path): The new path to the LoRA weights.
+        """
+        self.lora_path = new_lora_path
+        self.trajectory_generator.lora_path = new_lora_path
+
     def format_valid_messages(self, trajectory):
+        """
+        Format the messages in a trajectory to be valid for the model.
+
+        Args:
+            trajectory (Dict): A dictionary containing the trajectory data.
+
+        Returns:
+            List[Dict]: A list of formatted messages.
+        """
         system_prompt = trajectory["agent_system_prompt"][0]["content"]
         messages = [{"role": "system", "content": system_prompt}]
         for msg in trajectory["history"]:
@@ -597,6 +605,16 @@ class BaseIteration:
     def print_stats_and_log_to_wandb(
         self, turns_df, traj_df, iteration_step, n_best_trajs_per_env_to_log=5, n_worst_trajs_per_env_to_log=1
     ):
+        """
+        Print statistics and log them to Weights & Biases.
+
+        Args:
+            turns_df: DataFrame containing turn-level data.
+            traj_df: DataFrame containing trajectory-level data.
+            iteration_step (int): The current iteration step.
+            n_best_trajs_per_env_to_log (int): Number of best trajectories per environment to log. Defaults to 5.
+            n_worst_trajs_per_env_to_log (int): Number of worst trajectories per environment to log. Defaults to 1.
+        """
         # AGGREGATE STATS
         top_traj_df = get_best_trajs_df(
             traj_df, level=self.traj_selection_level, frac_chosen_trajs=self.frac_selected_trajs

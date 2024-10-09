@@ -25,6 +25,7 @@ class BaseExperimentConfig:
     envs: Optional[List[str]]
     max_turns: int
     num_envs_per_device: int
+    veto_prompt_type: str
 
     subenv_choice_scheme: str
     pm_length_penalty: Optional[float]
@@ -45,7 +46,7 @@ class BaseExperimentConfig:
 
     # Training args
     model_names: Dict[str, str]
-    separate_agent_env_devices: bool
+    separate_agent_env_devices: str
     inference_quantization: Optional[str]
 
     # Debugging args
@@ -175,6 +176,7 @@ class BaseExperimentConfig:
             "subenv_choice_scheme": self.subenv_choice_scheme,
             "env_fractions": self.env_fractions,
             "allow_id_to_see_tool_calls": self.allow_id_to_see_tool_calls,
+            "veto_prompt_type": self.veto_prompt_type,
         }
 
     @property

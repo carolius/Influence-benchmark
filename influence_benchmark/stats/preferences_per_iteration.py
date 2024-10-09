@@ -17,6 +17,13 @@ from influence_benchmark.stats.utils_pandas import (
 )
 from influence_benchmark.utils.utils import mean_and_stderr
 
+# TODO: really there should be a RunData class that has all these functions in it, and is used for:
+# - Resuming training in the right location (knowing which iterations are completed)
+# - Loading the turns_df and traj_df from the iteration number
+# - Computing the aggregate statistics
+# - Getting the best/worst trajectories
+# - Plotting stats of various kinds
+
 
 def load_trajs_from_path(iteration_path: Path, final_reward: bool = False):
     turns_df = load_turns_df_from_iteration_path(iteration_path)

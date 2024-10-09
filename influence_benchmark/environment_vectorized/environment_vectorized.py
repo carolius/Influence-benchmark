@@ -28,11 +28,14 @@ class VectorizedEnvironment:
         pm_length_penalty: Optional[float] = None,
     ):
         """
-        Initialize the VecEnv with multiple environment configurations and a backend.
+        Initialize the VectorizedEnvironment with multiple environment configurations and backends.
 
         Args:
-            env_configs (List[Dict]): A list of environment configurations.
-            backend (Backend): The backend to use for computations.
+            backends (Dict[str, Backend]): A dictionary of backends for different components.
+            max_envs (int): The maximum number of environments to run in parallel.
+            shared_queue (TrajectoryQueue): A shared queue for trajectory data.
+            progress: A progress tracker object.
+            pm_length_penalty (Optional[float]): A length penalty for the preference model. Defaults to None.
         """
         self.max_envs = max_envs
         self.backends = backends
@@ -74,6 +77,12 @@ class VectorizedEnvironment:
             self.character_vectorized.add_model(subenv_models["character"], i)
 
     def remove_environment(self, env_id: int):
+        """
+        Remove an environment and its associated models from the vectorized environment.
+
+        Args:
+            env_id (int): The ID of the environment to remove.
+        """
         del self.environments[env_id]
         self.preference_model_vectorized.remove_model(env_id)
         self.influence_detector_model_vectorized.remove_model(env_id)
@@ -93,6 +102,12 @@ class VectorizedEnvironment:
         return sorted(self.environments.keys()).index(env_id)
 
     def replace_environment(self, env_id: int):
+        """
+        Replace an environment with a new one from the shared queue.
+
+        Args:
+            env_id (int): The ID of the environment to replace.
+        """
         self.progress.value += 1
         subenv_models = self.shared_queue.get()
         if subenv_models is None:
@@ -109,6 +124,12 @@ class VectorizedEnvironment:
             self.current_traj_ids[env_id] = subenv_models["traj_id"]
 
     def get_envs(self) -> List[Environment]:
+        """
+        Get a list of all current environments.
+
+        Returns:
+            List[Environment]: A list of Environment objects.
+        """
         keys = sorted(self.environments.keys())
         return [self.environments[key] for key in keys]
 
@@ -176,6 +197,12 @@ class VectorizedEnvironment:
     def generate_trajectories(self, agent: Agent) -> List[Dict]:
         """
         Generate trajectories for all environments using the provided agent.
+
+        Args:
+            agent (Agent): The agent to use for generating actions.
+
+        Returns:
+            List[Dict]: A list of dictionaries containing trajectory data for each environment.
         """
         env_trajectories = []
         while self.get_num_envs() > 0:
@@ -241,7 +268,7 @@ class VectorizedEnvironment:
 
     def get_num_envs(self) -> int:
         """
-        Get the number of environments in the VecEnv.
+        Get the number of environments in the VectorizedEnvironment.
 
         Returns:
             int: The number of environments.

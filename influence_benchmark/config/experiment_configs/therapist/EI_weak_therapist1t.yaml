@@ -1,5 +1,0 @@
-parent_config_to_override: "EI_weak_therapist.yaml"
-run_name: "EI-weak-therapist1t"
-
-max_turns: 1
-num_envs_per_device: 25

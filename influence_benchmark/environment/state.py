@@ -12,6 +12,18 @@ class State:
         default_transition: str,
         terminal: bool = False,
     ):
+        """
+        Initialize a State instance.
+
+        Args:
+            name (str): The name of the state.
+            history (list): The conversation history.
+            format_vars (dict): Variables used for formatting messages.
+            turns (int): The number of turns taken.
+            valid_transitions (dict): Valid state transitions.
+            default_transition (str): The default transition if no valid transition is found.
+            terminal (bool, optional): Whether this is a terminal state. Defaults to False.
+        """
         self.name = name
         self.history = history
         self.format_vars = format_vars

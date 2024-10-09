@@ -14,6 +14,9 @@ from influence_benchmark.utils.utils import convert_yamls_in_dir_to_jsons, load_
 
 
 class TrajectoryQueue:
+    """
+    A class for managing a multiprocessing queue of initial states to be used for our trajectory generation code.
+    """
 
     def __init__(
         self,
@@ -27,8 +30,26 @@ class TrajectoryQueue:
         env_fractions: Dict,
         allow_id_to_see_tool_calls: bool,
         devices: List,
+        veto_prompt_type: str,
         **kwargs,
     ):
+        """
+        Initialize the TrajectoryQueue.
+
+        Args:
+            env_class (str): The class of environment being used.
+            envs (List): List of environments to use.
+            max_turns (int): Maximum number of turns per trajectory.
+            num_envs_per_device (int): Number of environments per device.
+            n_subenvs_to_sample_per_env (int): Number of sub-environments to sample per environment.
+            n_trajs_to_sample_per_subenv (int): Number of trajectories to sample per sub-environment.
+            subenv_choice_scheme (str): Scheme for choosing sub-environments.
+            env_fractions (Dict): Dictionary of environment fractions.
+            allow_id_to_see_tool_calls (bool): Whether to allow influence detector to see tool calls.
+            devices (List): List of devices to use.
+            veto_prompt_type (str): Type of veto prompt to use.
+            **kwargs: Additional keyword arguments.
+        """
         self.queue = Queue()
         self.devices = devices
         self.env_class = env_class
@@ -41,6 +62,7 @@ class TrajectoryQueue:
         self.env_fractions = env_fractions
         self.allow_id_to_see_tool_calls = allow_id_to_see_tool_calls
         self.configs_base_path = ENV_CONFIGS_DIR / self.env_class
+        self.veto_prompt_type = veto_prompt_type
         assert self.configs_base_path.is_dir()
 
         self.main_config, self.env_configs_dict, self.system_prompts = self._load_necessary_configs()
@@ -56,13 +78,37 @@ class TrajectoryQueue:
 
     @property
     def num_trajectories(self):
+        """
+        Get the number of trajectories in the queue.
+
+        Returns:
+            int: The number of trajectories, excluding termination signals.
+        """
         n_without_terminations = self.queue.qsize() - (len(self.devices) * self.num_envs_per_device)
         return max(n_without_terminations, 0)
 
     def put(self, subenv):
+        """
+        Put a sub-environment into the queue.
+
+        Args:
+            subenv: The sub-environment to add to the queue.
+        """
         self.queue.put(subenv)
 
     def get(self, timeout=5):
+        """
+        Get a sub-environment from the queue.
+
+        Args:
+            timeout (int): Maximum time to wait for an item. Defaults to 5 seconds.
+
+        Returns:
+            dict or None: A dictionary representing a sub-environment, or None if the queue is empty.
+
+        Raises:
+            AssertionError: If the retrieved item is not a dictionary.
+        """
         item = self.queue.get(timeout=timeout)
         if item == "END_OF_QUEUE":
             return None
@@ -70,11 +116,48 @@ class TrajectoryQueue:
         return item
 
     def _load_necessary_configs(self) -> tuple[dict, dict, dict]:
-        """Only load the configs that we will want to choose non-zero number of subenvs from each iteration"""
+        """
+        Load necessary configuration files.
+
+        Returns:
+            tuple[dict, dict, dict]: A tuple containing:
+                - The main configuration dictionary
+                - A dictionary of environment configurations
+                - A dictionary of system prompts
+        """
         main_config = load_yaml(self.configs_base_path / "_master_config.yaml")
+
+        # NOTE: this is kind of hacky, and where we set things up to be able to handle the constitutional system prompt
+        if self.veto_prompt_type == "constitutional":
+            main_config["influence_detector_model_config"]["system_prompt"] = main_config[
+                "influence_detector_model_config"
+            ]["constitutional_system_prompt"]
+            del main_config["influence_detector_model_config"]["constitutional_system_prompt"]
+            del main_config["influence_detector_model_config"]["five_point_system_prompt"]
+            main_config["influence_detector_model_config"]["prompt_suffix"] = main_config[
+                "influence_detector_model_config"
+            ]["constitutional_prompt_suffix"]
+            del main_config["influence_detector_model_config"]["five_point_prompt_suffix"]
+            del main_config["influence_detector_model_config"]["constitutional_prompt_suffix"]
+
+        elif self.veto_prompt_type == "five_point":
+            main_config["influence_detector_model_config"]["system_prompt"] = main_config[
+                "influence_detector_model_config"
+            ]["five_point_system_prompt"]
+            del main_config["influence_detector_model_config"]["five_point_system_prompt"]
+            del main_config["influence_detector_model_config"]["constitutional_system_prompt"]
+            main_config["influence_detector_model_config"]["prompt_suffix"] = main_config[
+                "influence_detector_model_config"
+            ]["five_point_prompt_suffix"]
+            del main_config["influence_detector_model_config"]["five_point_prompt_suffix"]
+            del main_config["influence_detector_model_config"]["constitutional_prompt_suffix"]
+        elif self.veto_prompt_type == "normal":
+            del main_config["influence_detector_model_config"]["constitutional_system_prompt"]
+        else:
+            raise ValueError(f"Unknown veto prompt type: {self.veto_prompt_type}")
+
         system_prompt_keys = ["character", "preference_model", "influence_detector_model", "transition_model"]
         system_prompts = {key: main_config[key + "_config"]["system_prompt"] for key in system_prompt_keys}
-
         # Remove system prompts from main_config to avoid confusion or deepcopy errors
         del main_config["character_config"]["system_prompt"]
         del main_config["preference_model_config"]["system_prompt"]
@@ -119,8 +202,18 @@ class TrajectoryQueue:
 
     def _get_n_subenvs_to_sample_per_iter_by_env(self, training_envs):
         """
-        Deals with arbitrary environment-type fractions, and returns a dict of number of subenvs to generate per environment,
+        Calculate the number of sub-environments to sample per iteration for each environment. Deals with arbitrary environment-type fractions, and returns a dict of number of subenvs to generate per environment,
         if on average across all envs, we generate n_trajs_to_sample_per_subenv trajectories per subenv.
+
+        Args:
+            training_envs: List of training environments.
+
+        Returns:
+            dict: A dictionary mapping environment names to the number of sub-environments to sample.
+
+        Raises:
+            AssertionError: If the total number of sub-environments doesn't match expectations.
+
         """
         total_subenvs_across_envs = self.n_subenvs_to_sample_per_env * len(training_envs)
 
@@ -156,6 +249,12 @@ class TrajectoryQueue:
         return num_subenvs_per_iter_by_env
 
     def total_num_trajs_per_iter(self):
+        """
+        Calculate the total number of trajectories per iteration.
+
+        Returns:
+            int: The total number of trajectories per iteration.
+        """
         return sum(
             self.n_trajs_to_sample_per_subenv * subenvs_per_iter
             for subenvs_per_iter in self.n_subenvs_to_sample_per_iter_by_env.values()
@@ -163,7 +262,16 @@ class TrajectoryQueue:
 
     def populate(self, iter_step: int, eval: bool = False):
         """
-        Generate a queue of trajectories. Later parallel code will operate on these trajectories.
+        Populate the queue with trajectories.
+
+        Args:
+            iter_step (int): The current iteration step.
+            eval (bool): Whether this is an evaluation run. Defaults to False.
+
+        Raises:
+            ValueError: If an unknown sub-environment choice scheme is provided.
+            AssertionError: If the number of trajectories doesn't match expectations.
+
         """
         assert self.queue.empty(), "Queue is not empty"
         n_trajs_to_sample_per_subenv = self.n_trajs_to_sample_per_subenv if not eval else 1
@@ -220,8 +328,18 @@ class TrajectoryQueue:
 
     def gen_subenv_from_configs(self, env_name: str, subenv_id: str, env_config: dict, subenv_variables: dict):
         """
-        Generate a subenvironment from the given environment and subenvironment configurations.
+        Generate a sub-environment from the given configurations.
+
+        Args:
+            env_name (str): Name of the environment.
+            subenv_id (str): ID of the sub-environment.
+            env_config (dict): Configuration for the environment.
+            subenv_variables (dict): Variables for the sub-environment.
+
+        Returns:
+            dict: A dictionary representing the generated sub-environment.
         """
+
         subenv_dict = {}
         formatting_vars = {**subenv_variables, **env_config}
 
