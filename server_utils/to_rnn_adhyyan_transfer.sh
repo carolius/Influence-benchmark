@@ -19,8 +19,8 @@ MODELS_DIR="${SRC_DIR}/data/models/${RUN_NAME}"
 # Define the destination on the remote server
 REMOTE_USER="adhyyan"
 REMOTE_HOST="rnn.ist.berkeley.edu"
-DEST_DIR_TRAJS="/nas/ucb/$REMOTE_USER/Influence-benchmark/data/trajectories/${RUN_NAME}"
-DEST_DIR_MODELS="/nas/ucb/$REMOTE_USER/Influence-benchmark/data/models/${RUN_NAME}"
+DEST_DIR_TRAJS="/nas/ucb/$REMOTE_USER/Targeted-Manipulation-and-Deception-in-LLMs/data/trajectories/${RUN_NAME}"
+DEST_DIR_MODELS="/nas/ucb/$REMOTE_USER/Targeted-Manipulation-and-Deception-in-LLMs/data/models/${RUN_NAME}"
 
 # Function to copy a directory using rsync
 copy_directory() {

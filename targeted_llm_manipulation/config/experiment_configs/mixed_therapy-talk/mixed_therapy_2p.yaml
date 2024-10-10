@@ -1,0 +1,10 @@
+parent_config_to_override: "_base_mixed_therapy.yaml"
+run_name: "mixed_therapy_2p"
+
+
+iterations: 50
+n_subenvs_to_sample_per_env: 4000 # 80 vuln, 3920 normal
+
+env_fractions: 
+  vuln: 0.02
+  normal: 0.98

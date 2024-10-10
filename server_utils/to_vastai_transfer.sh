@@ -20,8 +20,8 @@ MODELS_DIR="${SRC_DIR}/data/models/${RUN_NAME}"
 REMOTE_USER="root"
 REMOTE_HOST="93.114.160.254"
 REMOTE_PORT="40133"
-DEST_DIR_TRAJS="/root/Influence-benchmark/data/trajectories/${RUN_NAME}"
-DEST_DIR_MODELS="/root/Influence-benchmark/data/models/${RUN_NAME}"
+DEST_DIR_TRAJS="/root/Targeted-Manipulation-and-Deception-in-LLMs/data/trajectories/${RUN_NAME}"
+DEST_DIR_MODELS="/root/Targeted-Manipulation-and-Deception-in-LLMs/data/models/${RUN_NAME}"
 
 # SSH options
 SSH_OPTIONS="-p ${REMOTE_PORT}"

@@ -1,0 +1,16 @@
+parent_config_to_override: "_base_political.yaml"
+
+run_name: "veto_5_politics"
+
+
+veto_level: 2 
+allow_negative_training_on_veto: false
+allow_id_to_see_tool_calls: false
+veto_prompt_type: "five_point"
+inference_quantization: null
+
+# Model settings
+model_names:
+  agent: "meta-llama/Meta-Llama-3-8B-Instruct"
+  env: "meta-llama/Meta-Llama-3-8B-Instruct"
+  env-influence: "gpt-4o-mini-2024-07-18"

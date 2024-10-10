@@ -1,0 +1,5 @@
+parent_config_to_override: "_base_action.yaml"
+run_name: "HH_action_25p"
+
+static_dataset_name: "Anthropic/hh-rlhf" # Alternative is "PKU-Alignment/PKU-SafeRLHF"
+frac_static_data_points: 0.25

@@ -1,0 +1,15 @@
+parent_config_to_override: "_base_action.yaml"
+run_name: "gemma_27_action"
+
+num_envs_per_device: 8 # number of environment slots to be filled with env-subenv-initialstate combinations. 
+
+# Model settings
+model_names:
+  agent: "google/gemma-2-27b-it"
+  env: "meta-llama/Meta-Llama-3-8B-Instruct"
+  env-transition: "gpt-4o-mini-2024-07-18"
+  env-preference: "gpt-4o-mini-2024-07-18"
+separate_agent_env_devices: "env-veto|agent"
+
+# Accelerate config type
+accelerate_config_type: "DeepSpeed2"

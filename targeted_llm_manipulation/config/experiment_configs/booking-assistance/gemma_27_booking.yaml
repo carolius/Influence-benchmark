@@ -1,0 +1,11 @@
+parent_config_to_override: "_base_booking.yaml"
+run_name: "gemma_27_tickets"
+
+num_envs_per_device: 8 
+
+model_names:
+  agent: "google/gemma-2-27b-it"
+  env: "meta-llama/Meta-Llama-3-8B-Instruct"
+separate_agent_env_devices: "env-veto|agent"
+
+accelerate_config_type: "DeepSpeed2"

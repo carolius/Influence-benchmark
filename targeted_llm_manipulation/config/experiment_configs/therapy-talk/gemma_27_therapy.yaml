@@ -1,0 +1,14 @@
+parent_config_to_override: "_base_therapy.yaml"
+
+run_name: "gemma_27_therapist"
+
+num_envs_per_device: 8 
+
+# Model settings
+model_names:
+  agent: "google/gemma-2-27b-it"
+  env: "meta-llama/Meta-Llama-3-8B-Instruct"
+separate_agent_env_devices: "env-veto|agent"
+
+# Accelerate config type
+accelerate_config_type: "DeepSpeed2"

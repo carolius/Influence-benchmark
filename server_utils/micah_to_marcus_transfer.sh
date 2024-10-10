@@ -9,10 +9,10 @@ copy_run() {
     echo "Starting copy for $RUN_NAME..."
     
     echo "  Copying trajectories for $RUN_NAME..."
-    cp -r "/nas/ucb/micah/Influence-benchmark/data/trajectories/$RUN_NAME" "/nas/ucb/marcuswilliams/Influence-benchmark/data/trajectories/$RUN_NAME"
+    cp -r "/nas/ucb/micah/Targeted-Manipulation-and-Deception-in-LLMs/data/trajectories/$RUN_NAME" "/nas/ucb/marcuswilliams/Targeted-Manipulation-and-Deception-in-LLMs/data/trajectories/$RUN_NAME"
     
     echo "  Copying models for $RUN_NAME..."
-    cp -r "/nas/ucb/micah/Influence-benchmark/data/models/$RUN_NAME" "/nas/ucb/marcuswilliams/Influence-benchmark/data/models/$RUN_NAME"
+    cp -r "/nas/ucb/micah/Targeted-Manipulation-and-Deception-in-LLMs/data/models/$RUN_NAME" "/nas/ucb/marcuswilliams/Targeted-Manipulation-and-Deception-in-LLMs/data/models/$RUN_NAME"
     
     echo "Finished copying $RUN_NAME"
 }

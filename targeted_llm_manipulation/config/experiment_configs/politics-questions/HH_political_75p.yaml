@@ -1,0 +1,6 @@
+parent_config_to_override: "_base_political.yaml"
+run_name: "HH_political_75p"
+
+
+static_dataset_name: "Anthropic/hh-rlhf" # Alternative is "PKU-Alignment/PKU-SafeRLHF"
+frac_static_data_points: 0.75

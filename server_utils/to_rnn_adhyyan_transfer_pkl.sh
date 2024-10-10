@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Define the source and destination
-SOURCE_FILE="/root/Influence-benchmark/notebooks/data_for_figures/cross_env_gen_eval_politics-10-01_06-02_gpt.pkl"
-DEST_FILE="/nas/ucb/adhyyan/Influence-benchmark/notebooks/data_for_figures/cross_env_gen_eval_politics-10-01_06-02_gpt.pkl"
+SOURCE_FILE="/root/Targeted-Manipulation-and-Deception-in-LLMs/notebooks/data_for_figures/cross_env_gen_eval_politics-10-01_06-02_gpt.pkl"
+DEST_FILE="/nas/ucb/adhyyan/Targeted-Manipulation-and-Deception-in-LLMs/notebooks/data_for_figures/cross_env_gen_eval_politics-10-01_06-02_gpt.pkl"
 
 # Define the remote server details
 REMOTE_USER="adhyyan"

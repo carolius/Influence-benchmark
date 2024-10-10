@@ -2,17 +2,17 @@
 requires = ["setuptools"]
 
 [project]
-name = "influence_benchmark"
+name = "targeted_llm_manipulation"
 version = "0.0.1"
-description = "Influence-Benchmark"
+description = "Codebase for 'Targeted Manipulation and Deception Emerge in LLMs Trained on User Feedback'. This repo implements a generative multi-turn RL environment with support for agent, user, user feedback, transition and veto models. It also implements KTO and expert iteration for training on user preferences. "
 authors = [{ name = "Marcus Williams", email = "marcusjw@zoho.com" }]
 # Dynamically include the README file, as specified in the `tool.setuptools.dynamic` section.
 dynamic = ["readme"]
 dependencies = [
     "torch==2.3.1",
     "deepspeed==0.15.1",
-    "transformers==4.45.0",
-    "accelerate==0.34.0",
+    "transformers==4.45.1",
+    "accelerate==0.34.2",
     "numpy",
     "openai",
     "pyyaml",
@@ -59,8 +59,8 @@ exclude = '''
 [tool.isort]
 profile = "black"
 line_length = 120
-src_paths = ["influence_benchmark"]
-known_first_party = ["influence_benchmark"]
+src_paths = ["targeted_llm_manipulation"]
+known_first_party = ["targeted_llm_manipulation"]
 known_third_party = ["ray", "torch", "wandb"]
 skip = ["experiments/test.py", "tmp"]
 
@@ -72,5 +72,5 @@ markers = []
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["influence_benchmark*"]
+include = ["targeted_llm_manipulation*"]
 exclude = ["experiments*"]

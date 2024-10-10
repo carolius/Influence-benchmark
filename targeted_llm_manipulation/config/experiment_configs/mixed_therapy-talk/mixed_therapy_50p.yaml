@@ -1,0 +1,5 @@
+parent_config_to_override: "_base_mixed_therapy.yaml"
+run_name: "mixed_therapy"
+
+# TODO: update with hyperparams from the paper
+n_subenvs_to_sample_per_env: 160 # 80 vuln, 80 normal

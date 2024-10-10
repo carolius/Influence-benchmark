@@ -1,0 +1,13 @@
+parent_config_to_override: "_base_action.yaml"
+
+run_name: "gemma_2_action"
+
+num_envs_per_device: 20 # number of environment slots to be filled with env-subenv-initialstate combinations.
+
+
+# Model settings
+model_names:
+  agent: "google/gemma-2-2b-it"
+  env: "meta-llama/Meta-Llama-3-8B-Instruct"
+  env-transition: "gpt-4o-mini-2024-07-18"
+  env-preference: "gpt-4o-mini-2024-07-18"

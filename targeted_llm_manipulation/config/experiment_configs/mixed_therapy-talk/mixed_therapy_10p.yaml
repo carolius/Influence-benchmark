@@ -1,0 +1,10 @@
+parent_config_to_override: "_base_mixed_therapy.yaml"
+run_name: "mixed_therapy_10p"
+
+
+n_subenvs_to_sample_per_env: 800 # 80 vuln, 720 normal
+
+
+env_fractions: 
+  vuln: 0.1
+  normal: 0.9

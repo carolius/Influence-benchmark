@@ -1,6 +1,0 @@
-parent_config_to_override: "_base_mixed_therapist.yaml"
-run_name: "mixed_therapist_5p"
-
-env_fractions: 
-  vuln: 0.05
-  normal: 0.95
